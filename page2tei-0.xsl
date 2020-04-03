@@ -13,7 +13,7 @@
     exclude-result-prefixes="#all"
     version="3.0">
     
-    <xsl:output indent="0" />
+    <xsl:output indent="yes" method="xml" omit-xml-declaration="no" encoding="UTF-8"/>
     
     <xd:doc>
         <xd:desc>Whether to create `rs type="..."` for person/place/org (default) or `persName` etc. (false())</xd:desc>
@@ -67,7 +67,12 @@
                     <xsl:apply-templates select="mets:fileSec//mets:fileGrp[@ID='PAGEXML']/mets:file" mode="facsimile" />
                 </facsimile>
             </xsl:if>
-            <text><body>
+            <text>
+                <!-- add language attribute based on metadata -->
+                <xsl:if test="$v_meta-language-bcp47 != ''">
+                    <xsl:attribute name="xml:lang" select="$v_meta-language-bcp47"/>
+                </xsl:if>
+                <body>
              <xsl:variable name="make_div">
                 <div>
                   <xsl:apply-templates select="mets:fileSec//mets:fileGrp[@ID='PAGEXML']/mets:file" mode="text" />
@@ -85,6 +90,36 @@
     </xsl:template>
     
     <!-- Templates for trpMetaData -->
+    <!-- variable for language information -->
+    <xsl:variable name="v_meta-language" select="lower-case(mets:mets//mets:xmlData/trpDocMetadata/language)"/>
+    <xsl:variable name="v_meta-language-bcp47">
+        <xsl:choose>
+            <xsl:when test="$v_meta-language = 'arabic'">
+                <xsl:text>ar</xsl:text>
+            </xsl:when>
+            <xsl:when test="$v_meta-language = 'english'">
+                <xsl:text>en</xsl:text>
+            </xsl:when>
+            <xsl:when test="$v_meta-language = 'french'">
+                <xsl:text>fr</xsl:text>
+            </xsl:when>
+            <xsl:when test="$v_meta-language = 'german'">
+                <xsl:text>de</xsl:text>
+            </xsl:when>
+            <xsl:when test="$v_meta-language = 'hebrew'">
+                <xsl:text>he</xsl:text>
+            </xsl:when>
+            <xsl:when test="$v_meta-language = 'turkish'">
+                <xsl:text>tr</xsl:text>
+            </xsl:when>
+            <!-- fallback: I hate opting for English as fallback -->
+            <xsl:otherwise>
+                <xsl:message>
+                    <xsl:text>The language "</xsl:text><xsl:value-of select="$v_meta-language"/><xsl:text>" cannot be converted into a BCP47 compliant code.</xsl:text>
+                </xsl:message>
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:variable>
     <xd:doc>
         <xd:desc>
             <xd:p>The title within the Transkribus meta data</xd:p>
@@ -281,44 +316,44 @@
       </xd:p></xd:desc>
         <xd:param name="numCurr"/>
     </xd:doc>
-     <xsl:template match="p:TextRegion" mode="text">
-        <xsl:param name="numCurr" tunnel="true" />
-     <xsl:choose>
-      <xsl:when test="@type = 'heading'">
-        <head facs="#facs_{$numCurr}_{@id}">
+    <xsl:template match="p:TextRegion" mode="text">
+       <xsl:param name="numCurr" tunnel="true" />
+       <xsl:choose>
+           <xsl:when test="@type = 'heading'">
+            <head facs="#facs_{$numCurr}_{@id}">
+                <xsl:apply-templates select="p:TextLine" />
+            </head>
+        </xsl:when>
+        <xsl:when test="@type = 'caption'">
+            <figure>
+                <head facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></head>
+            </figure>
+        </xsl:when>
+        <xsl:when test="@type = 'header'">
+            <fw type="header" place="top" facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></fw>
+        </xsl:when>
+        <xsl:when test="@type = 'footer'">
+            <fw type="header" place="bottom" facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></fw>
+        </xsl:when>
+        <xsl:when test="@type = 'catch-word'">
+            <fw type="catch" place="bottom" facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></fw>
+        </xsl:when>
+        <xsl:when test="@type = 'signature-mark'">
+            <fw place="bottom" type="sig" facs="#facs_{$numCurr}_{@id}">
         <xsl:apply-templates select="p:TextLine" />
-       </head>
-      </xsl:when>
-      <xsl:when test="@type = 'caption'">
-       <figure>
-        <head facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></head>
-       </figure>
-      </xsl:when>
-      <xsl:when test="@type = 'header'">
-       <fw type="header" place="top" facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></fw>
-      </xsl:when>
-      <xsl:when test="@type = 'footer'">
-       <fw type="header" place="bottom" facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></fw>
-      </xsl:when>
-      <xsl:when test="@type = 'catch-word'">
-       <fw type="catch" place="bottom" facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></fw>
-      </xsl:when>
-      <xsl:when test="@type = 'signature-mark'">
-       <fw place="bottom" type="sig" facs="#facs_{$numCurr}_{@id}">
-        <xsl:apply-templates select="p:TextLine" />
-       </fw>
-      </xsl:when>
-      <xsl:when test="@type = 'marginalia'">
-       <note place="[direction]" facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></note>
-      </xsl:when>
-      <xsl:when test="@type = 'footnote'">
-       <note place="foot" n="[footnote reference]" facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></note>
-      </xsl:when>
-         <xsl:when test="@type = 'footnote-continued'">
-             <note place="foot" n="[footnote-continued reference]" facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></note>
-      </xsl:when>
-      <xsl:when test="@type = 'other'">
-       <p facs="#facs_{$numCurr}_{@id}">
+        </fw>
+        </xsl:when>
+        <xsl:when test="@type = 'marginalia'">
+            <note place="[direction]" facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></note>
+        </xsl:when>
+        <xsl:when test="@type = 'footnote'">
+            <note place="foot" n="[footnote reference]" facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></note>
+        </xsl:when>
+        <xsl:when test="@type = 'footnote-continued'">
+            <note place="foot" n="[footnote-continued reference]" facs="#facs_{$numCurr}_{@id}"><xsl:apply-templates select="p:TextLine" /></note>
+        </xsl:when>
+        <xsl:when test="@type = 'other'">
+            <p facs="#facs_{$numCurr}_{@id}">
                 <xsl:apply-templates select="p:TextLine" />
             </p>
         </xsl:when>
@@ -329,7 +364,7 @@
             </ab>
         </xsl:otherwise>
     </xsl:choose>
-    </xsl:template>
+</xsl:template>
     
     <xd:doc>
         <xd:desc>create a table</xd:desc>
